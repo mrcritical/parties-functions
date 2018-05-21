@@ -7,12 +7,11 @@ const firebase = require('firebase');
 const cookieParser = require('cookie-parser')();
 const cors = require('cors')({origin: true});
 
-admin.initializeApp({
+const adminApp = admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: 'https://parties-35d88.firebaseio.com'
 });
-
-firebase.initializeApp(firebaseAccount);
+const firebaseApp = firebase.initializeApp(firebaseAccount);
 
 // Express middleware that validates Firebase ID Tokens passed in the Authorization HTTP header.
 // The Firebase ID token needs to be passed as a Bearer token in the Authorization HTTP header like this:
@@ -65,25 +64,31 @@ app.use(cookieParser);
  */
 app.get('/attendee/authorize', (req, res) => {
     const token = req.query.token;
-    admin
+    adminApp
         .firestore()
         .collection('tokens')
         .doc(token)
         .get()
-        .then((attendee) => {
+        .then(attendee => {
             const data = attendee.data();
             if (attendee.exists) {
-                return admin
-                    .auth()
-                    .createCustomToken(data.userId)
-                    .then((customToken) => {
-                        return res.json({
-                            token: customToken
-                        });
-                    });
+                return Promise.all([
+                    attendee,
+                    adminApp
+                        .auth()
+                        .createCustomToken(data.userId)
+                ])
             } else {
                 return Promise.reject(new Error('Failed to find the uid for attendee using token=' + token));
             }
+        })
+        .then(results => {
+            const attendee = results[0];
+            const customToken = results[1];
+            return res.json({
+                id: attendee.data().userId,
+                token: customToken
+            });
         })
         .catch((error) => {
             console.error('An invalid token=' + token + ' was received', error);
@@ -97,7 +102,7 @@ app.post('/party/:partyId/attendee-login-link', (req, res) => {
     console.log('Body: ' + JSON.stringify(req.body));
     const partyId = req.params.partyId;
     const email = req.body.email;
-    return firebase
+    return firebaseApp
         .auth()
         .sendSignInLinkToEmail(email, {
             // URL you want to redirect back to. The domain (www.example.com) for this
