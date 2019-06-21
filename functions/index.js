@@ -107,7 +107,7 @@ app.post('/party/:partyId/attendee-login-link', (req, res) => {
         .sendSignInLinkToEmail(email, {
             // URL you want to redirect back to. The domain (www.example.com) for this
             // URL must be whitelisted in the Firebase Console.
-            url: 'http://localhost:3000/parties/' + partyId,
+            url: 'http://localhost:3000/parties/' + partyId + '/join?email=' + email,
             // This must be true.
             handleCodeInApp: true
         })
